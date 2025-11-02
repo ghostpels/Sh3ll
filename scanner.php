@@ -1,12 +1,18 @@
 <?php
+// DITAMBAHKAN UNTUK DEBUGGING (Hapus jika sudah normal)
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 // webshell_scanner.php
 session_start();
 
 // Konfigurasi
-$SCAN_DIRECTORIES = ['.', '../']; // Mulai dari direktori current dan parent
+// DIPERBAIKI: Hanya scan direktori saat ini ('.') untuk mencegah error 500 akibat open_basedir
+$SCAN_DIRECTORIES = ['.']; 
 $EXCLUDED_DIRS = ['./vendor', './node_modules', '../vendor', '../node_modules'];
 $MAX_FILE_SIZE = 5242880; // 5MB
-$SELF_FILE_PATH = realpath(__FILE__); // DITAMBAHKAN: Untuk mengecualikan file ini sendiri
+$SELF_FILE_PATH = realpath(__FILE__); 
 
 // Pattern untuk mendeteksi webshell
 $SUSPICIOUS_PATTERNS = [
@@ -70,7 +76,6 @@ class WebShellScanner {
             foreach ($files as $file) {
                 if ($file == '.' || $file == '..') continue;
 
-                // DIPERBAIKI: Normalisasi path
                 $fullPath = rtrim($directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $file;
                 $realFullPath = @realpath($fullPath);
 
@@ -79,13 +84,11 @@ class WebShellScanner {
                     continue;
                 }
 
-                // DITAMBAHKAN: Pengecekan untuk mengecualikan file scanner ini sendiri
                 global $SELF_FILE_PATH;
                 if ($realFullPath == $SELF_FILE_PATH) continue;
                 
-                // DIPERBAIKI: Pengecekan eksklusi dengan realpath
                 $skip = false;
-                foreach ($excludedDirs as $excluded) { // $excludedDirs sekarang berisi realpath
+                foreach ($excludedDirs as $excluded) { 
                     if (strpos($realFullPath, $excluded) === 0) {
                         $skip = true;
                         break;
@@ -93,7 +96,6 @@ class WebShellScanner {
                 }
                 if ($skip) continue;
 
-                // DIPERBAIKI: Gunakan realpath untuk pengecekan dan rekursi
                 if (is_dir($realFullPath)) {
                     $this->scanDirectory($realFullPath, $excludedDirs, $maxFileSize);
                 } else {
@@ -109,13 +111,11 @@ class WebShellScanner {
     private function checkFile($filePath, $maxFileSize) {
         global $SUSPICIOUS_PATTERNS;
 
-        // Check file size
         $fileSize = @filesize($filePath);
         if ($fileSize === false || $fileSize > $maxFileSize) {
             return;
         }
 
-        // Check file extension
         $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
         $suspiciousExtensions = ['php', 'phtml', 'php3', 'php4', 'php5', 'php7', 'phar', 'inc'];
         
@@ -132,7 +132,6 @@ class WebShellScanner {
             $suspiciousSigns = [];
             $score = 0;
 
-            // Pattern matching
             foreach ($SUSPICIOUS_PATTERNS as $patternName => $pattern) {
                 if (preg_match_all($pattern, $content, $matches)) {
                     $count = count($matches[0]);
@@ -141,7 +140,6 @@ class WebShellScanner {
                 }
             }
 
-            // Advanced detection
             if ($this->isObfuscated($content)) {
                 $suspiciousSigns['obfuscated'] = true;
                 $score += 3;
@@ -159,7 +157,7 @@ class WebShellScanner {
 
             if ($score > 0) {
                 $this->suspiciousFiles[] = [
-                    'path' => $filePath, // $filePath sudah berisi realpath
+                    'path' => $filePath, 
                     'score' => $score,
                     'signs' => $suspiciousSigns,
                     'size' => $fileSize,
@@ -174,21 +172,15 @@ class WebShellScanner {
     }
 
     private function isObfuscated($content) {
-        // Check for comment stuffing dengan fungsi berbahaya
         if (preg_match('/\/\*+.*eval.*\*+\//is', $content)) {
             return true;
         }
-
-        // Check for multiple encoding
         if (preg_match('/base64_decode\s*\(.*base64_decode/', $content)) {
             return true;
         }
-
-        // Check for complex concatenation
         if (preg_match_all('/\\$[a-z0-9_]{1,5}\s*=\s*\\$[a-z0-9_]{1,5}\s*\.\s*\\$[a-z0-9_]{1,5}/', $content) > 3) {
             return true;
         }
-
         return false;
     }
 
@@ -204,7 +196,6 @@ class WebShellScanner {
     }
 
     public function getResults() {
-        // Urutkan berdasarkan score tertinggi
         usort($this->suspiciousFiles, function($a, $b) {
             return $b['score'] - $a['score'];
         });
@@ -216,15 +207,11 @@ class WebShellScanner {
     }
 }
 
-// DIPINDAHKAN: Fungsi ini dipindah ke atas sebelum dipanggil untuk memperbaiki error 500
 function getFileUrl($filePath) {
-    // DIPERBAIKI: Gunakan realpath untuk perbandingan yang lebih akurat
     $docRoot = @realpath($_SERVER['DOCUMENT_ROOT'] ?? '');
     $basePath = @realpath(dirname($_SERVER['SCRIPT_FILENAME']));
     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    
-    // $filePath sudah di-resolve ke realpath oleh scanner
     
     if ($docRoot && strpos($filePath, $docRoot) === 0) {
         $relativePath = str_replace($docRoot, '', $filePath);
@@ -232,13 +219,10 @@ function getFileUrl($filePath) {
     } elseif ($basePath && strpos($filePath, $basePath) === 0) {
         $relativePath = str_replace($basePath, '', $filePath);
         $scriptPath = dirname($_SERVER['SCRIPT_NAME']);
-        // Bersihkan scriptPath agar tidak duplikat
         $scriptPath = rtrim($scriptPath, '/\\');
         return $protocol . '://' . $host . $scriptPath . str_replace(DIRECTORY_SEPARATOR, '/', $relativePath);
     } else {
-        // Fallback ke path relative dari root (kurang akurat tapi lebih baik daripada error)
         $relativePath = str_replace(DIRECTORY_SEPARATOR, '/', $filePath);
-        // Coba hapus bagian path server jika masih ada
         if ($docRoot) {
             $relativePath = str_replace($docRoot, '', $relativePath);
         }
@@ -252,41 +236,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
             case 'scan':
-                set_time_limit(0); // DITAMBAHKAN: Mencegah timeout saat scan
+                set_time_limit(0); 
                 
                 global $SCAN_DIRECTORIES, $EXCLUDED_DIRS, $MAX_FILE_SIZE;
                 
                 $scanner = new WebShellScanner();
 
-                // DITAMBAHKAN: Resolve path eksklusi ke realpath
                 $realExcludedDirs = [];
                 foreach ($EXCLUDED_DIRS as $exDir) {
                     $realExDir = @realpath($exDir);
-                    if ($realExDir) {
+            d         if ($realExDir) {
                         $realExcludedDirs[] = $realExDir;
                     }
                 }
 
-                // DIPERBAIKI: Gunakan realpath untuk direktori scan
                 foreach ($SCAN_DIRECTORIES as $dir) {
                     $realDir = @realpath($dir);
                     if ($realDir && is_dir($realDir)) {
                         $scanner->scanDirectory($realDir, $realExcludedDirs, $MAX_FILE_SIZE);
                     }
-                }
-                $_SESSION['scan_results'] = $scanner->getResults();
+              _SESSION['scan_results'] = $scanner->getResults();
                 header('Location: ' . $_SERVER['PHP_SELF']);
                 exit;
                 
+            // DIPERBAIKI: Blok ini telah dikoreksi (typo dihapus)
             case 'delete':
                 if (isset($_POST['file_path']) && file_exists($_POST['file_path'])) {
-                    // $_POST['file_path'] seharusnya sudah realpath dari hasil scan
                     if (@unlink($_POST['file_path'])) {
                         $_SESSION['message'] = "File berhasil dihapus: " . htmlspecialchars($_POST['file_path']);
                     } else {
                         $_SESSION['error'] = "Gagal menghapus file (cek permission): " . htmlspecialchars($_POST['file_path']);
                     }
-        _SESSION['file_path'] = $_POST['file_path'];
+                }
+                header('Location: ' . $_SERVER['PHP_SELF']);
+                exit;
+                
+            case 'view_url':
+                if (isset($_POST['file_path'])) {
+                    $url = getFileUrl($_POST['file_path']);
+                    header("Location: $url");
+                    exit;
+                }
+                break;
+                
+            case 'view_content':
+                if (isset($_POST['file_path']) && file_exists($_POST['file_path'])) {
+                    $content = @file_get_contents($_POST['file_path']);
+                    if ($content !== false) {
+                        $_SESSION['file_content'] = htmlspecialchars($content);
+                        $_SESSION['file_path'] = $_POST['file_path'];
                     }
                 }
                 header('Location: ' . $_SERVER['PHP_SELF']);
@@ -407,28 +405,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border: 1px solid #e1e8ed;
             padding: 20px;
             margin: 15px 0;
-    _SESSION['message'] = "File berhasil dihapus: " . htmlspecialchars($_POST['file_path']);
-                    } else {
-                        $_SESSION['error'] = "Gagal menghapus file: " . htmlspecialchars($_POST['file_path']);
-                    }
-                }
-                header('Location: ' . $_SERVER['PHP_SELF']);
-                exit;
-                
-            case 'view_url':
-                if (isset($_POST['file_path'])) {
-                    $url = getFileUrl($_POST['file_path']);
-                    header("Location: $url");
-                    exit;
-                }
-                break;
-                
-            case 'view_content':
-                if (isset($_POST['file_path']) && file_exists($_POST['file_path'])) {
-                    $content = @file_get_contents($_POST['file_path']);
-                    if ($content !== false) {
-                        $_SESSION['file_content'] = htmlspecialchars($content);
-                                transform: translateY(-2px);
+            border-radius: 8px;
+            background: #fafbfc;
+            transition: all 0.3s ease;
+        }
+        
+        .file-item:hover {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
         }
         
         .file-path {
@@ -491,6 +475,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-size: 12px;
             max-height: 400px;
             overflow-y: auto;
+section class:
             border: 1px solid #34495e;
         }
         
@@ -511,7 +496,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         .file-actions {
             margin-top: 15px;
-            display: flex;
+s           display: flex;
             flex-wrap: wrap;
             gap: 10px;
         }
@@ -523,6 +508,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             .file-actions {
+section class:
                 flex-direction: column;
             }
             
@@ -587,16 +573,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="file-size">📏 Ukuran: <?php echo number_format($file['size']); ?> bytes</div>
                             <div class="file-modified">🕒 Modifikasi: <?php echo $file['modified']; ?></div>
                             
-                            <div class="file-signs">
+                                                        <div class="file-signs">
                                 <strong>🔍 Tanda Mencurigakan:</strong><br>
-                        nbsp; border-radius: 8px;
-            background: #fafbfc;
-            transition: all 0.3s ease;
-        }
-        
-        .file-item:hover {
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-                      <?php foreach ($file['signs'] as $sign => $count): ?>
+                                <?php foreach ($file['signs'] as $sign => $count): ?>
                                     <span class="sign-item"><?php echo htmlspecialchars("$sign: " . ($count === true ? 'Yes' : $count)); ?></span>
                                 <?php endforeach; ?>
                             </div>
@@ -606,7 +585,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <input type="hidden" name="action" value="view_content">
                                     <input type="hidden" name="file_path" value="<?php echo htmlspecialchars($file['path']); ?>">
                                     <button type="submit" class="btn btn-content">📄 Lihat Konten</button>
-                                </form>
+F                                 </form>
 
                                 <form method="post" style="margin: 0;">
                                     <input type="hidden" name="action" value="view_url">
@@ -617,7 +596,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <form method="post" style="margin: 0;">
                                     <input type="hidden" name="action" value="delete">
                                     <input type="hidden" name="file_path" value="<?php echo htmlspecialchars($file['path']); ?>">
-section class:
                                     <button type="submit" class="btn btn-delete">🗑️ Hapus</button>
                                 </form>
                             </div>
@@ -628,6 +606,7 @@ section class:
                 <div style="text-align: center; padding: 40px; color: #27ae60;">
                     <h3>✅ Tidak ditemukan file mencurigakan</h3>
                     <p>Server Anda tampak bersih dari webshell yang terdeteksi</p>
+section class:
                 </div>
             <?php endif; ?>
             
@@ -636,7 +615,6 @@ section class:
     </div>
 
     <script>
-        // Konfirmasi sebelum tindakan berbahaya
         document.addEventListener('DOMContentLoaded', function() {
             const forms = document.querySelectorAll('form');
             
@@ -650,6 +628,7 @@ section class:
                             e.preventDefault();
                         }
                     } else if (action.value === 'view_url') {
+section class:
                         if (!confirm('⚠️ PERINGATAN: Membuka URL file yang mencurigakan bisa berbahaya. Lanjutkan?')) {
                             e.preventDefault();
                         }
