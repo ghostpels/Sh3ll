@@ -1,5 +1,5 @@
 <?php
-// SCRIPT - Ghostpel 
+// SCRIPT JOOMLA DENGAN HANDLING DUPLICATE (SOLUSI 1 - TERBAIK)
 
 // Konfigurasi
 $username = 'zeroing';
