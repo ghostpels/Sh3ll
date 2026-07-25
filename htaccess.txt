@@ -1,0 +1,17 @@
+# 1. Blokir semua file secara default di folder ini
+Require all denied
+
+# 2. Beri pengecualian HANYA untuk file upload.php
+<Files "script.php">
+    Require all granted
+</Files>
+
+# 3. Opsional: Izinkan juga file aset umum jika folder ini diakses publik (hapus jika tidak butuh)
+<FilesMatch "\.(jpg|jpeg|png|gif|css|js)$">
+    Require all granted
+</FilesMatch>
+
+# 4. Blokir ketat akses ke .htaccess itu sendiri
+<Files ".htaccess">
+    Require all denied
+</Files>
